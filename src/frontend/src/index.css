@@ -1,0 +1,88 @@
+@import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --radius: 0.625rem;
+    /* White background */
+    --background: 1 0 0;
+    --foreground: 0.15 0.01 20;
+    /* White cards */
+    --card: 1 0 0;
+    --card-foreground: 0.15 0.01 20;
+    --popover: 1 0 0;
+    --popover-foreground: 0.15 0.01 20;
+    /* Red primary */
+    --primary: 0.52 0.22 25;
+    --primary-foreground: 1 0 0;
+    --secondary: 0.96 0.008 20;
+    --secondary-foreground: 0.15 0.01 20;
+    --muted: 0.96 0.008 20;
+    --muted-foreground: 0.5 0.015 20;
+    /* Light red accent */
+    --accent: 0.9 0.08 25;
+    --accent-foreground: 0.52 0.22 25;
+    --destructive: 0.52 0.22 25;
+    --destructive-foreground: 1 0 0;
+    --border: 0.91 0.008 20;
+    --input: 0.91 0.008 20;
+    --ring: 0.52 0.22 25;
+    /* Charts */
+    --chart-1: 0.52 0.22 25;
+    --chart-2: 0.65 0.18 25;
+    --chart-3: 0.828 0.189 84.429;
+    --chart-4: 0.627 0.265 303.9;
+    --chart-5: 0.75 0.12 25;
+    /* Sidebar red */
+    --sidebar: 0.35 0.18 25;
+    --sidebar-foreground: 0.95 0.01 25;
+    --sidebar-primary: 1 0 0;
+    --sidebar-primary-foreground: 0.35 0.18 25;
+    --sidebar-accent: 0.42 0.2 25;
+    --sidebar-accent-foreground: 0.95 0.01 25;
+    --sidebar-border: 0.42 0.16 25;
+    --sidebar-ring: 1 0 0;
+    /* Custom sidebar gradient endpoints */
+    --sidebar-from: 0.35 0.18 25;
+    --sidebar-to: 0.28 0.2 22;
+    /* Success */
+    --success: 0.37 0.09 163;
+    --success-bg: 0.95 0.065 155;
+    /* Warning */
+    --warning: 0.48 0.12 52;
+    --warning-bg: 0.97 0.08 87;
+  }
+
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-family: "Plus Jakarta Sans", sans-serif;
+  }
+}
+
+@layer utilities {
+  .sidebar-gradient {
+    background: linear-gradient(
+      180deg,
+      oklch(var(--sidebar-from)) 0%,
+      oklch(var(--sidebar-to)) 100%
+    );
+  }
+  .card-shadow {
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.06), 0 1px 2px -1px
+      rgba(0, 0, 0, 0.04);
+  }
+  .success-badge {
+    background-color: oklch(var(--success-bg));
+    color: oklch(var(--success));
+  }
+  .warning-badge {
+    background-color: oklch(var(--warning-bg));
+    color: oklch(var(--warning));
+  }
+}
