@@ -11,16 +11,19 @@ import {
 import { Principal } from "@icp-sdk/core/principal";
 import {
   Building2,
+  Check,
   Palette,
   Save,
   Shield,
   Trash2,
   Upload,
+  User,
   UserPlus,
   Users,
 } from "lucide-react";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
+import { applyTheme } from "../App";
 import { UserRole } from "../backend";
 import { useActor } from "../hooks/useActor";
 
@@ -33,6 +36,45 @@ interface TeamMember {
   addedAt: string;
 }
 
+const THEMES = [
+  {
+    id: "theme-red",
+    name: "Deep Red",
+    primary: "oklch(0.52 0.22 25)",
+    sidebar: "oklch(0.35 0.18 25)",
+  },
+  {
+    id: "theme-blue",
+    name: "Ocean Blue",
+    primary: "oklch(0.52 0.2 250)",
+    sidebar: "oklch(0.28 0.18 250)",
+  },
+  {
+    id: "theme-green",
+    name: "Forest Green",
+    primary: "oklch(0.45 0.18 155)",
+    sidebar: "oklch(0.28 0.16 155)",
+  },
+  {
+    id: "theme-purple",
+    name: "Royal Purple",
+    primary: "oklch(0.50 0.22 300)",
+    sidebar: "oklch(0.30 0.18 300)",
+  },
+  {
+    id: "theme-dark",
+    name: "Midnight Dark",
+    primary: "oklch(0.12 0.01 240)",
+    sidebar: "oklch(0.10 0.01 240)",
+  },
+  {
+    id: "theme-orange",
+    name: "Sunset Orange",
+    primary: "oklch(0.60 0.20 48)",
+    sidebar: "oklch(0.35 0.18 48)",
+  },
+];
+
 export default function Settings() {
   const { actor } = useActor();
   const [companyName, setCompanyName] = useState(
@@ -42,6 +84,16 @@ export default function Settings() {
     localStorage.getItem("company_logo"),
   );
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Profile / display name
+  const [displayName, setDisplayName] = useState(
+    () => localStorage.getItem("user_display_name") || "Sarah Jenkins",
+  );
+
+  // Active theme
+  const [activeTheme, setActiveTheme] = useState(
+    () => localStorage.getItem("app_theme") || "theme-red",
+  );
 
   // Team Members state
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>(() => {
@@ -72,12 +124,21 @@ export default function Settings() {
   const handleSave = () => {
     const trimmed = companyName.trim() || "Uparjanam";
     localStorage.setItem("company_name", trimmed);
+    const nameTrimmed = displayName.trim() || "Sarah Jenkins";
+    localStorage.setItem("user_display_name", nameTrimmed);
     if (logoUrl) {
       localStorage.setItem("company_logo", logoUrl);
     } else {
       localStorage.removeItem("company_logo");
     }
     toast.success("Settings saved successfully!");
+  };
+
+  const handleThemeSelect = (themeId: string) => {
+    setActiveTheme(themeId);
+    applyTheme(themeId);
+    const theme = THEMES.find((t) => t.id === themeId);
+    toast.success(`Theme changed to ${theme?.name || themeId}`);
   };
 
   const saveTeamMembers = (members: TeamMember[]) => {
@@ -94,7 +155,6 @@ export default function Settings() {
       toast.error("Please enter the Principal ID.");
       return;
     }
-    // Validate principal format
     let principal: Principal;
     try {
       principal = Principal.fromText(newMember.principalId.trim());
@@ -163,6 +223,30 @@ export default function Settings() {
 
   return (
     <div className="max-w-2xl mx-auto space-y-8" data-ocid="settings.page">
+      {/* Profile Settings */}
+      <section
+        className="bg-card rounded-xl border border-border p-6 space-y-5"
+        data-ocid="settings.profile.panel"
+      >
+        <div className="flex items-center gap-2 mb-1">
+          <User className="w-5 h-5 text-primary" />
+          <h2 className="text-lg font-semibold">Profile</h2>
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="display-name">Display Name</Label>
+          <Input
+            id="display-name"
+            value={displayName}
+            onChange={(e) => setDisplayName(e.target.value)}
+            placeholder="Enter your name"
+            data-ocid="settings.display_name.input"
+          />
+          <p className="text-xs text-muted-foreground">
+            This name appears in the top-right header of the app.
+          </p>
+        </div>
+      </section>
+
       {/* Company Settings */}
       <section
         className="bg-card rounded-xl border border-border p-6 space-y-5"
@@ -397,21 +481,59 @@ export default function Settings() {
 
       {/* Theme Settings */}
       <section
-        className="bg-card rounded-xl border border-border p-6"
+        className="bg-card rounded-xl border border-border p-6 space-y-5"
         data-ocid="settings.section"
       >
-        <div className="flex items-center gap-2 mb-3">
+        <div className="flex items-center gap-2 mb-1">
           <Palette className="w-5 h-5 text-primary" />
           <h2 className="text-lg font-semibold">Theme</h2>
         </div>
-        <div className="flex items-center gap-3">
-          <div className="w-6 h-6 rounded-full bg-primary border border-border" />
-          <p className="text-sm text-muted-foreground">
-            Current theme:{" "}
-            <span className="font-medium text-foreground">
-              Deep Red &amp; White
-            </span>
-          </p>
+        <p className="text-sm text-muted-foreground">
+          Choose a color theme for the entire app. Changes apply instantly.
+        </p>
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+          {THEMES.map((theme) => {
+            const isActive = activeTheme === theme.id;
+            return (
+              <button
+                key={theme.id}
+                type="button"
+                data-ocid="settings.theme.button"
+                onClick={() => handleThemeSelect(theme.id)}
+                className={`relative flex flex-col items-center gap-2.5 p-3 rounded-xl border-2 transition-all hover:scale-105 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+                  isActive
+                    ? "border-primary bg-primary/5 shadow-md"
+                    : "border-border bg-background hover:border-primary/40"
+                }`}
+              >
+                {/* Color swatch */}
+                <div className="relative w-12 h-12 rounded-full overflow-hidden shadow-md">
+                  <div
+                    className="absolute inset-0"
+                    style={{
+                      background: `linear-gradient(135deg, ${theme.sidebar} 0%, ${theme.primary} 100%)`,
+                    }}
+                  />
+                  {isActive && (
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <div className="w-5 h-5 rounded-full bg-white/90 flex items-center justify-center">
+                        <Check
+                          className="w-3 h-3"
+                          style={{ color: theme.primary }}
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+                <span className="text-xs font-medium text-center leading-tight">
+                  {theme.name}
+                </span>
+                {isActive && (
+                  <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-primary" />
+                )}
+              </button>
+            );
+          })}
         </div>
       </section>
 

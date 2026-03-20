@@ -28,6 +28,7 @@ import {
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { Page } from "../App";
+import { useInternetIdentity } from "../hooks/useInternetIdentity";
 
 interface SidebarProps {
   currentPage: Page;
@@ -79,6 +80,7 @@ export default function Sidebar({ currentPage, onNavigate }: SidebarProps) {
   const [logoHover, setLogoHover] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const nameInputRef = useRef<HTMLInputElement>(null);
+  const { clear } = useInternetIdentity();
 
   useEffect(() => {
     const savedLogo = localStorage.getItem("company_logo");
@@ -130,9 +132,7 @@ export default function Sidebar({ currentPage, onNavigate }: SidebarProps) {
   };
 
   const handleLogoutConfirm = () => {
-    localStorage.removeItem("company_logo");
-    localStorage.removeItem("company_name");
-    window.location.reload();
+    clear();
   };
 
   return (
@@ -285,8 +285,7 @@ export default function Sidebar({ currentPage, onNavigate }: SidebarProps) {
                 Are you sure you want to logout?
               </AlertDialogTitle>
               <AlertDialogDescription>
-                This will clear your session. Your company settings will be
-                reset.
+                You will be signed out and redirected to the login screen.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
