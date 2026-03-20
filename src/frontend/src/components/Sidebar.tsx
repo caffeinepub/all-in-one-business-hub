@@ -1,4 +1,15 @@
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import {
   BookOpen,
   CalendarCheck,
   Camera,
@@ -11,6 +22,7 @@ import {
   Network,
   Pencil,
   Settings,
+  Share2,
   Users,
   Zap,
 } from "lucide-react";
@@ -48,6 +60,7 @@ const navGroups = [
         label: "DSA Partners",
       },
       { id: "dsa-connectors" as Page, icon: Network, label: "DSA Connectors" },
+      { id: "digital-leads" as Page, icon: Share2, label: "Digital Leads" },
     ],
   },
   {
@@ -116,11 +129,16 @@ export default function Sidebar({ currentPage, onNavigate }: SidebarProps) {
     if (e.key === "Enter" || e.key === " ") fileInputRef.current?.click();
   };
 
+  const handleLogoutConfirm = () => {
+    localStorage.removeItem("company_logo");
+    localStorage.removeItem("company_name");
+    window.location.reload();
+  };
+
   return (
     <aside className="sidebar-gradient w-64 flex-shrink-0 flex flex-col h-full">
       {/* Logo & Company Name */}
       <div className="flex items-center gap-3 px-5 py-5 border-b border-sidebar-border">
-        {/* Logo upload area — using a button for a11y */}
         <button
           type="button"
           className="relative flex-shrink-0 cursor-pointer rounded-full focus:outline-none focus:ring-2 focus:ring-white/40"
@@ -158,7 +176,6 @@ export default function Sidebar({ currentPage, onNavigate }: SidebarProps) {
           onChange={handleLogoChange}
         />
 
-        {/* Company name with edit */}
         <div className="flex-1 min-w-0 flex items-center gap-1">
           {isEditingName ? (
             <div className="flex items-center gap-1 w-full">
@@ -240,19 +257,52 @@ export default function Sidebar({ currentPage, onNavigate }: SidebarProps) {
         <button
           type="button"
           data-ocid="nav.settings.link"
-          className="w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm text-sidebar-foreground hover:bg-white/6 hover:text-white transition-colors"
+          onClick={() => onNavigate("settings")}
+          className={`w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors ${
+            currentPage === "settings"
+              ? "bg-white/10 text-white font-medium"
+              : "text-sidebar-foreground hover:bg-white/6 hover:text-white"
+          }`}
         >
           <Settings className="w-4 h-4" />
           Settings
         </button>
-        <button
-          type="button"
-          data-ocid="nav.logout.button"
-          className="w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm text-sidebar-foreground hover:bg-white/6 hover:text-white transition-colors"
-        >
-          <LogOut className="w-4 h-4" />
-          Logout
-        </button>
+
+        <AlertDialog>
+          <AlertDialogTrigger asChild>
+            <button
+              type="button"
+              data-ocid="nav.logout.button"
+              className="w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm text-sidebar-foreground hover:bg-white/6 hover:text-white transition-colors"
+            >
+              <LogOut className="w-4 h-4" />
+              Logout
+            </button>
+          </AlertDialogTrigger>
+          <AlertDialogContent data-ocid="logout.dialog">
+            <AlertDialogHeader>
+              <AlertDialogTitle>
+                Are you sure you want to logout?
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                This will clear your session. Your company settings will be
+                reset.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel data-ocid="logout.cancel_button">
+                Cancel
+              </AlertDialogCancel>
+              <AlertDialogAction
+                data-ocid="logout.confirm_button"
+                onClick={handleLogoutConfirm}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                Logout
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </aside>
   );

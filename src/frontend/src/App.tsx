@@ -9,11 +9,13 @@ import Accounting from "./pages/Accounting";
 import DSAConnectors from "./pages/DSAConnectors";
 import DSAPartners from "./pages/DSAPartners";
 import Dashboard from "./pages/Dashboard";
+import DigitalLeads from "./pages/DigitalLeads";
 import EmployeeAttendance from "./pages/EmployeeAttendance";
 import EmployeeLocations from "./pages/EmployeeLocations";
 import HRDocuments from "./pages/HRDocuments";
 import HRManagement from "./pages/HRManagement";
 import LoanManagement from "./pages/LoanManagement";
+import Settings from "./pages/Settings";
 
 export type Page =
   | "dashboard"
@@ -24,7 +26,9 @@ export type Page =
   | "loans"
   | "dsa-partners"
   | "dsa-connectors"
-  | "accounting";
+  | "digital-leads"
+  | "accounting"
+  | "settings";
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { staleTime: 30_000 } },
@@ -52,7 +56,9 @@ function AppContent() {
     loans: "Loan Management",
     "dsa-partners": "DSA Partners",
     "dsa-connectors": "DSA Connectors",
+    "digital-leads": "Digital Leads",
     accounting: "Accounting",
+    settings: "Settings",
   };
 
   return (
@@ -71,19 +77,13 @@ function AppContent() {
           {currentPage === "loans" && <LoanManagement />}
           {currentPage === "dsa-partners" && <DSAPartners />}
           {currentPage === "dsa-connectors" && <DSAConnectors />}
+          {currentPage === "digital-leads" && <DigitalLeads />}
           {currentPage === "accounting" && <Accounting />}
+          {currentPage === "settings" && <Settings />}
         </main>
         <footer className="bg-card border-t border-border px-6 py-3 flex items-center justify-between text-xs text-muted-foreground">
           <span>
-            © {new Date().getFullYear()}. Built with love using{" "}
-            <a
-              href={`https://caffeine.ai?utm_source=caffeine-footer&utm_medium=referral&utm_content=${encodeURIComponent(window.location.hostname)}`}
-              className="underline hover:text-foreground"
-              target="_blank"
-              rel="noreferrer"
-            >
-              caffeine.ai
-            </a>
+            © {new Date().getFullYear()}. Built with love using uparjanam
           </span>
           <div className="flex gap-4">
             <span className="cursor-pointer hover:text-foreground">Terms</span>

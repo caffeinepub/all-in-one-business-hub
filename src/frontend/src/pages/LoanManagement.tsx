@@ -37,6 +37,7 @@ import {
   Loader2,
   Plus,
   Search,
+  Trash2,
   XCircle,
 } from "lucide-react";
 import { motion } from "motion/react";
@@ -225,10 +226,71 @@ interface CibilResult {
   date: string;
 }
 
+const CIBIL_HISTORY_KEY = "uparjanam_cibil_history";
+
+function downloadCibilReport(entry: CibilResult) {
+  const cat = scoreCategory(entry.score);
+  const lines = [
+    "============================================================",
+    "             CIBIL CREDIT REPORT - UPARJANAM",
+    "============================================================",
+    "",
+    `Report Generated : ${entry.date}`,
+    "",
+    "-- APPLICANT DETAILS ---------------------------------------",
+    `Name             : ${entry.name}`,
+    `PAN Number       : ${entry.pan}`,
+    `Mobile           : ${entry.mobile}`,
+    "",
+    "-- CREDIT SCORE --------------------------------------------",
+    `CIBIL Score      : ${entry.score} / 900`,
+    `Category         : ${cat.label}`,
+    "Score Range      : 300 - 900",
+    "",
+    "-- REMARKS -------------------------------------------------",
+    cat.remarks,
+    "",
+    "-- DISCLAIMER ----------------------------------------------",
+    "This report is simulated for demonstration purposes only.",
+    "For official CIBIL reports, visit www.cibil.com",
+    "============================================================",
+  ];
+  const content = lines.join("\n");
+  const blob = new Blob([content], { type: "text/plain" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `CIBIL_Report_${entry.pan}.txt`;
+  a.click();
+  URL.revokeObjectURL(url);
+  toast.success("CIBIL report downloaded");
+}
+
 function CibilCheck() {
   const [form, setForm] = useState({ pan: "", name: "", mobile: "" });
   const [result, setResult] = useState<CibilResult | null>(null);
   const [loading, setLoading] = useState(false);
+  const [history, setHistory] = useState<CibilResult[]>(() => {
+    try {
+      return JSON.parse(localStorage.getItem(CIBIL_HISTORY_KEY) || "[]");
+    } catch {
+      return [];
+    }
+  });
+
+  const saveToHistory = (entry: CibilResult) => {
+    setHistory((prev) => {
+      const updated = [entry, ...prev];
+      localStorage.setItem(CIBIL_HISTORY_KEY, JSON.stringify(updated));
+      return updated;
+    });
+  };
+
+  const clearHistory = () => {
+    localStorage.removeItem(CIBIL_HISTORY_KEY);
+    setHistory([]);
+    toast.success("CIBIL history cleared");
+  };
 
   const handleCheck = () => {
     if (!form.pan || !form.name || !form.mobile) {
@@ -242,7 +304,7 @@ function CibilCheck() {
     setLoading(true);
     setTimeout(() => {
       const score = computeCibilScore(form.pan.toUpperCase());
-      setResult({
+      const newResult: CibilResult = {
         pan: form.pan.toUpperCase(),
         name: form.name,
         mobile: form.mobile,
@@ -252,49 +314,12 @@ function CibilCheck() {
           month: "long",
           year: "numeric",
         }),
-      });
+      };
+      setResult(newResult);
+      saveToHistory(newResult);
       setLoading(false);
       toast.success("CIBIL score fetched successfully");
     }, 1200);
-  };
-
-  const handleDownload = () => {
-    if (!result) return;
-    const cat = scoreCategory(result.score);
-    const lines = [
-      "============================================================",
-      "             CIBIL CREDIT REPORT - UPARJANAM",
-      "============================================================",
-      "",
-      `Report Generated : ${result.date}`,
-      "",
-      "-- APPLICANT DETAILS ---------------------------------------",
-      `Name             : ${result.name}`,
-      `PAN Number       : ${result.pan}`,
-      `Mobile           : ${result.mobile}`,
-      "",
-      "-- CREDIT SCORE --------------------------------------------",
-      `CIBIL Score      : ${result.score} / 900`,
-      `Category         : ${cat.label}`,
-      "Score Range      : 300 - 900",
-      "",
-      "-- REMARKS -------------------------------------------------",
-      cat.remarks,
-      "",
-      "-- DISCLAIMER ----------------------------------------------",
-      "This report is simulated for demonstration purposes only.",
-      "For official CIBIL reports, visit www.cibil.com",
-      "============================================================",
-    ];
-    const content = lines.join("\n");
-    const blob = new Blob([content], { type: "text/plain" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `CIBIL_Report_${result.pan}.txt`;
-    a.click();
-    URL.revokeObjectURL(url);
-    toast.success("CIBIL report downloaded");
   };
 
   const progressValue = result ? ((result.score - 300) / 600) * 100 : 0;
@@ -394,7 +419,7 @@ function CibilCheck() {
                       variant="outline"
                       size="sm"
                       data-ocid="cibil.download.button"
-                      onClick={handleDownload}
+                      onClick={() => downloadCibilReport(result)}
                       className="gap-2"
                     >
                       <Download className="w-4 h-4" />
@@ -517,6 +542,136 @@ function CibilCheck() {
             </motion.div>
           );
         })()}
+
+      {/* CIBIL Check History */}
+      <motion.div
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, delay: 0.1 }}
+      >
+        <Card
+          className="shadow-card border-border"
+          data-ocid="cibil.history.card"
+        >
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-base flex items-center gap-2">
+                <FileText className="w-4 h-4 text-primary" />
+                CIBIL Check History
+              </CardTitle>
+              <Button
+                variant="outline"
+                size="sm"
+                data-ocid="cibil.history.delete_button"
+                onClick={clearHistory}
+                className="gap-2 text-destructive hover:text-destructive"
+                disabled={history.length === 0}
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                Clear History
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent className="p-0">
+            <Table data-ocid="cibil.history.table">
+              <TableHeader>
+                <TableRow className="hover:bg-transparent border-border">
+                  <TableHead className="text-xs font-semibold text-muted-foreground pl-6">
+                    Date Checked
+                  </TableHead>
+                  <TableHead className="text-xs font-semibold text-muted-foreground">
+                    Applicant
+                  </TableHead>
+                  <TableHead className="text-xs font-semibold text-muted-foreground">
+                    PAN
+                  </TableHead>
+                  <TableHead className="text-xs font-semibold text-muted-foreground">
+                    Mobile
+                  </TableHead>
+                  <TableHead className="text-xs font-semibold text-muted-foreground">
+                    Score
+                  </TableHead>
+                  <TableHead className="text-xs font-semibold text-muted-foreground">
+                    Category
+                  </TableHead>
+                  <TableHead className="text-xs font-semibold text-muted-foreground text-right pr-6">
+                    Action
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {history.length === 0 ? (
+                  <TableRow>
+                    <TableCell
+                      colSpan={7}
+                      className="text-center py-10 text-muted-foreground"
+                      data-ocid="cibil.history.empty_state"
+                    >
+                      No history yet
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  history.map((entry, i) => {
+                    const cat = scoreCategory(entry.score);
+                    return (
+                      <TableRow
+                        key={`${entry.pan}-${i}`}
+                        data-ocid={`cibil.history.item.${i + 1}`}
+                        className="border-border"
+                      >
+                        <TableCell className="text-sm text-muted-foreground pl-6">
+                          {entry.date}
+                        </TableCell>
+                        <TableCell className="text-sm font-medium">
+                          {entry.name}
+                        </TableCell>
+                        <TableCell className="text-sm font-mono">
+                          {entry.pan}
+                        </TableCell>
+                        <TableCell className="text-sm text-muted-foreground">
+                          {entry.mobile}
+                        </TableCell>
+                        <TableCell
+                          className={`text-sm font-bold tabular-nums ${cat.color}`}
+                        >
+                          {entry.score}
+                        </TableCell>
+                        <TableCell>
+                          <span
+                            className={`text-xs font-semibold px-2 py-0.5 rounded ${
+                              entry.score >= 800
+                                ? "bg-green-100 text-green-700"
+                                : entry.score >= 750
+                                  ? "bg-green-50 text-green-600"
+                                  : entry.score >= 650
+                                    ? "bg-amber-100 text-amber-700"
+                                    : "bg-red-100 text-red-700"
+                            }`}
+                          >
+                            {cat.label}
+                          </span>
+                        </TableCell>
+                        <TableCell className="text-right pr-6">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            data-ocid={`cibil.history.download.button.${i + 1}`}
+                            onClick={() => downloadCibilReport(entry)}
+                            className="h-8 w-8 p-0"
+                            title="Download Report"
+                          >
+                            <Download className="w-4 h-4" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
+                )}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      </motion.div>
     </div>
   );
 }
