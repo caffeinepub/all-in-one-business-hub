@@ -95,6 +95,14 @@ export interface UserProfile {
 export type UserRole = { 'admin' : null } |
   { 'user' : null } |
   { 'guest' : null };
+export interface LoanDocument {
+  'id' : bigint,
+  'loanId' : bigint,
+  'name' : string,
+  'fileType' : string,
+  'uploadedAt' : bigint,
+  'blobRef' : Uint8Array | number[],
+}
 export interface _SERVICE {
   '_initializeAccessControlWithSecret' : ActorMethod<[string], undefined>,
   'addDSAConnector' : ActorMethod<[string, string, string, string], undefined>,
@@ -106,6 +114,7 @@ export interface _SERVICE {
     [string, string, string, string, number],
     undefined
   >,
+  'updateEmployee' : ActorMethod<[bigint, string, string, string, string, number, string], undefined>,
   'addTransaction' : ActorMethod<[number, string, string, string], undefined>,
   'applyForLoan' : ActorMethod<
     [string, string, number, string, string],
@@ -121,6 +130,9 @@ export interface _SERVICE {
   'getAllEmployees' : ActorMethod<[], Array<Employee>>,
   'getAllLoanApplications' : ActorMethod<[], Array<LoanApplication>>,
   'getAllTransactions' : ActorMethod<[], Array<Transaction>>,
+  'addLoanDocument' : ActorMethod<[bigint, string, string, Uint8Array | number[]], bigint>,
+  'getLoanDocuments' : ActorMethod<[bigint], Array<LoanDocument>>,
+  'deleteLoanDocument' : ActorMethod<[bigint], undefined>,
   'getAttendance' : ActorMethod<[bigint], Array<Attendance>>,
   'getCallerUserProfile' : ActorMethod<[], [] | [UserProfile]>,
   'getCallerUserRole' : ActorMethod<[], UserRole>,

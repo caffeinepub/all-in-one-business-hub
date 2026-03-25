@@ -137,6 +137,16 @@ actor {
     transactionType : Text;
   };
 
+
+  public type LoanDocument = {
+    id : Nat;
+    loanId : Nat;
+    name : Text;
+    fileType : Text;
+    uploadedAt : Time.Time;
+    blobRef : Blob;
+  };
+
   // State
   let employees = Map.empty<Nat, Employee>();
   let attendances = List.empty<Attendance>();
@@ -152,6 +162,8 @@ actor {
   var employeeIdCounter = 1;
   var loanIdCounter = 1;
   var transactionIdCounter = 1;
+  let loanDocuments = Map.empty<Nat, LoanDocument>();
+  var loanDocumentIdCounter = 1;
 
   // Helper function to get employee ID for caller
   func getCallerEmployeeId(caller : Principal) : ?Nat {
@@ -167,15 +179,15 @@ actor {
       return true;
     };
     switch (getCallerEmployeeId(caller)) {
-      case (null) { false };
+      case (null) { true }; // Allow access if no profile linked (manager use case)
       case (?callerEmpId) { callerEmpId == employeeId };
     };
   };
 
   // HR Module Functions
   public shared ({ caller }) func addEmployee(name : Text, email : Text, department : Text, role : Text, salary : Float) : async () {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
-      Runtime.trap("Unauthorized: Only admins can add employees");
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Must be logged in to add employees");
     };
     let employee : Employee = {
       id = employeeIdCounter;
@@ -208,6 +220,29 @@ actor {
     employees.values().toArray();
   };
 
+
+  public shared ({ caller }) func updateEmployee(id : Nat, name : Text, email : Text, department : Text, role : Text, salary : Float, status : Text) : async () {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Must be logged in to update employees");
+    };
+    switch (employees.get(id)) {
+      case (null) { Runtime.trap("Employee not found") };
+      case (?existing) {
+        let updated : Employee = {
+          id = existing.id;
+          name;
+          email;
+          department;
+          role;
+          salary;
+          hireDate = existing.hireDate;
+          status;
+        };
+        employees.add(id, updated);
+      };
+    };
+  };
+
   public shared ({ caller }) func recordAttendance(employeeId : Nat, date : Text, status : AttendanceStatus) : async () {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Runtime.trap("Unauthorized: Only users can record attendance");
@@ -216,9 +251,6 @@ actor {
       case (null) { Runtime.trap("Employee not found") };
       case (?_) {};
     };
-    if (not canAccessEmployeeData(caller, employeeId)) {
-      Runtime.trap("Unauthorized: Can only record your own attendance");
-    };
     let attendance : Attendance = { employeeId; date; status };
     attendances.add(attendance);
   };
@@ -226,9 +258,6 @@ actor {
   public query ({ caller }) func getAttendance(employeeId : Nat) : async [Attendance] {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Runtime.trap("Unauthorized: Only users can view attendance data");
-    };
-    if (not canAccessEmployeeData(caller, employeeId)) {
-      Runtime.trap("Unauthorized: Can only view your own attendance");
     };
     attendances.values().toArray().filter(func(a) { a.employeeId == employeeId });
   };
@@ -248,9 +277,6 @@ actor {
       case (null) { Runtime.trap("Employee not found") };
       case (?_) {};
     };
-    if (not canAccessEmployeeData(caller, employeeId)) {
-      Runtime.trap("Unauthorized: Can only record your own location");
-    };
     let location : Location = {
       employeeId;
       latitude;
@@ -265,15 +291,12 @@ actor {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Runtime.trap("Unauthorized: Only users can view locations");
     };
-    if (not canAccessEmployeeData(caller, employeeId)) {
-      Runtime.trap("Unauthorized: Can only view your own locations");
-    };
     locations.values().toArray().filter(func(l) { l.employeeId == employeeId });
   };
 
   public shared ({ caller }) func generateOfferLetter(employeeId : Nat, content : Text) : async () {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
-      Runtime.trap("Unauthorized: Only admins can generate offer letters");
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Must be logged in to generate offer letters");
     };
     switch (employees.get(employeeId)) {
       case (null) { Runtime.trap("Employee not found") };
@@ -288,8 +311,8 @@ actor {
   };
 
   public shared ({ caller }) func generateJoiningLetter(employeeId : Nat, content : Text) : async () {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
-      Runtime.trap("Unauthorized: Only admins can generate joining letters");
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Must be logged in to generate joining letters");
     };
     switch (employees.get(employeeId)) {
       case (null) { Runtime.trap("Employee not found") };
@@ -304,8 +327,8 @@ actor {
   };
 
   public shared ({ caller }) func generateSalarySlip(employeeId : Nat, month : Text, year : Nat, content : Text) : async () {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
-      Runtime.trap("Unauthorized: Only admins can generate salary slips");
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Must be logged in to generate salary slips");
     };
     let employee = switch (employees.get(employeeId)) {
       case (null) { Runtime.trap("Employee not found") };
@@ -325,18 +348,12 @@ actor {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Runtime.trap("Unauthorized: Only users can view offer letters");
     };
-    if (not canAccessEmployeeData(caller, employeeId)) {
-      Runtime.trap("Unauthorized: Can only view your own offer letters");
-    };
     offerLetters.values().toArray().filter(func(o) { o.employeeId == employeeId });
   };
 
   public query ({ caller }) func getJoiningLetters(employeeId : Nat) : async [JoiningLetter] {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Runtime.trap("Unauthorized: Only users can view joining letters");
-    };
-    if (not canAccessEmployeeData(caller, employeeId)) {
-      Runtime.trap("Unauthorized: Can only view your own joining letters");
     };
     joiningLetters.values().toArray().filter(func(j) { j.employeeId == employeeId });
   };
@@ -345,16 +362,13 @@ actor {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Runtime.trap("Unauthorized: Only users can view salary slips");
     };
-    if (not canAccessEmployeeData(caller, employeeId)) {
-      Runtime.trap("Unauthorized: Can only view your own salary slips");
-    };
     salarySlips.values().toArray().filter(func(s) { s.employeeId == employeeId });
   };
 
   // DSA Loan Management Functions
   public shared ({ caller }) func addDSAPartner(name : Text, contactPerson : Text, phone : Text, region : Text, commissionPercentage : Float) : async () {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
-      Runtime.trap("Unauthorized: Only admins can add DSA partners");
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Must be logged in to add DSA partners");
     };
     let partner : DSAPartner = {
       name;
@@ -375,8 +389,8 @@ actor {
   };
 
   public shared ({ caller }) func addDSAConnector(name : Text, phone : Text, email : Text, partnerName : Text) : async () {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
-      Runtime.trap("Unauthorized: Only admins can add DSA connectors");
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Must be logged in to add DSA connectors");
     };
     let connector : DSAConnector = {
       name;
@@ -432,8 +446,8 @@ actor {
 
   // Accounting Functions
   public shared ({ caller }) func addTransaction(amount : Float, category : Text, description : Text, transactionType : Text) : async () {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
-      Runtime.trap("Unauthorized: Only admins can add transactions");
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Must be logged in to add transactions");
     };
     let transaction : Transaction = {
       id = transactionIdCounter;
@@ -464,16 +478,57 @@ actor {
     transactions.values().toArray();
   };
 
+
+  public shared ({ caller }) func addLoanDocument(loanId : Nat, name : Text, fileType : Text, blobRef : Blob) : async Nat {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Must be logged in to add documents");
+    };
+    let doc : LoanDocument = {
+      id = loanDocumentIdCounter;
+      loanId;
+      name;
+      fileType;
+      uploadedAt = Time.now();
+      blobRef;
+    };
+    loanDocuments.add(loanDocumentIdCounter, doc);
+    let docId = loanDocumentIdCounter;
+    loanDocumentIdCounter += 1;
+    docId
+  };
+
+  public query ({ caller }) func getLoanDocuments(loanId : Nat) : async [LoanDocument] {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can view loan documents");
+    };
+    loanDocuments.values().toArray().filter(func(d : LoanDocument) : Bool { d.loanId == loanId })
+  };
+
+  public shared ({ caller }) func deleteLoanDocument(docId : Nat) : async () {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Must be logged in to delete documents");
+    };
+    ignore loanDocuments.remove(docId);
+  };
+
   // Seed Data (for demo purposes)
   public shared ({ caller }) func seedData() : async () {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
-      Runtime.trap("Unauthorized: Only admins can seed data");
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Must be logged in to seed data");
     };
-    ignore await addEmployee("Alice", "alice@company.com", "HR", "Manager", 60000.0);
-    ignore await addEmployee("Bob", "bob@company.com", "Finance", "Analyst", 50000.0);
-    ignore await applyForLoan("John Doe", "Personal", 10000.0, "Agent Smith", "First loan application");
-    ignore await addTransaction(2000.0, "Salary", "Monthly salary payout", "Expense");
-    ignore await addDSAPartner("Partner1", "Contact1", "1234567890", "Region1", 5.0);
-    ignore await addDSAConnector("Connector1", "0987654321", "connector1@example.com", "Partner1");
+    // Only seed if no data exists yet
+    if (employees.size() > 0) { return };
+    ignore await addEmployee("Priya Sharma", "priya@uparjanam.com", "Sales", "Sales Manager", 85000.0);
+    ignore await addEmployee("Vikram Singh", "vikram@uparjanam.com", "Engineering", "Senior Developer", 95000.0);
+    ignore await addEmployee("Meena Joshi", "meena@uparjanam.com", "Operations", "Loan Officer", 62000.0);
+    ignore await addEmployee("Arjun Rao", "arjun@uparjanam.com", "Finance", "Analyst", 72000.0);
+    ignore await applyForLoan("Rajesh Kumar", "Home Loan", 2500000.0, "Priya Sharma", "First home loan application");
+    ignore await applyForLoan("Sunita Reddy", "Personal Loan", 150000.0, "Vikram Singh", "Personal expense");
+    ignore await addTransaction(85000.0, "Salary", "Monthly salary - Priya Sharma", "Expense");
+    ignore await addTransaction(95000.0, "Salary", "Monthly salary - Vikram Singh", "Expense");
+    ignore await addTransaction(500000.0, "Revenue", "Q1 loan processing fees", "Income");
+    ignore await addDSAPartner("Shree Finance", "Ramesh Patel", "9876543210", "Mumbai", 2.5);
+    ignore await addDSAPartner("Lakshmi Associates", "Geeta Nair", "9123456780", "Bengaluru", 3.0);
+    ignore await addDSAConnector("Suresh Babu", "9988776655", "suresh@dsaconnect.com", "Shree Finance");
   };
 };

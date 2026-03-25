@@ -115,6 +115,11 @@ export const idlService = IDL.Service({
       [],
       [],
     ),
+  'updateEmployee' : IDL.Func(
+      [IDL.Nat, IDL.Text, IDL.Text, IDL.Text, IDL.Text, IDL.Float64, IDL.Text],
+      [],
+      [],
+    ),
   'addTransaction' : IDL.Func(
       [IDL.Float64, IDL.Text, IDL.Text, IDL.Text],
       [],
@@ -140,6 +145,9 @@ export const idlService = IDL.Service({
       ['query'],
     ),
   'getAllTransactions' : IDL.Func([], [IDL.Vec(Transaction)], ['query']),
+  'addLoanDocument' : IDL.Func([IDL.Nat, IDL.Text, IDL.Text, IDL.Vec(IDL.Nat8)], [IDL.Nat], []),
+  'getLoanDocuments' : IDL.Func([IDL.Nat], [IDL.Vec(LoanDocument)], ['query']),
+  'deleteLoanDocument' : IDL.Func([IDL.Nat], [], []),
   'getAttendance' : IDL.Func([IDL.Nat], [IDL.Vec(Attendance)], ['query']),
   'getCallerUserProfile' : IDL.Func([], [IDL.Opt(UserProfile)], ['query']),
   'getCallerUserRole' : IDL.Func([], [UserRole], ['query']),
@@ -191,6 +199,14 @@ export const idlFactory = ({ IDL }) => {
     'role' : IDL.Text,
     'email' : IDL.Text,
     'department' : IDL.Text,
+  });
+  const LoanDocument = IDL.Record({
+    'id' : IDL.Nat,
+    'loanId' : IDL.Nat,
+    'name' : IDL.Text,
+    'fileType' : IDL.Text,
+    'uploadedAt' : IDL.Int,
+    'blobRef' : IDL.Vec(IDL.Nat8),
   });
   const LoanApplication = IDL.Record({
     'id' : IDL.Nat,
@@ -283,6 +299,11 @@ export const idlFactory = ({ IDL }) => {
         [],
         [],
       ),
+    'updateEmployee' : IDL.Func(
+        [IDL.Nat, IDL.Text, IDL.Text, IDL.Text, IDL.Text, IDL.Float64, IDL.Text],
+        [],
+        [],
+      ),
     'addTransaction' : IDL.Func(
         [IDL.Float64, IDL.Text, IDL.Text, IDL.Text],
         [],
@@ -308,6 +329,12 @@ export const idlFactory = ({ IDL }) => {
         ['query'],
       ),
     'getAllTransactions' : IDL.Func([], [IDL.Vec(Transaction)], ['query']),
+    'addLoanDocument' : IDL.Func([IDL.Nat, IDL.Text, IDL.Text, IDL.Vec(IDL.Nat8)], [IDL.Nat], []),
+    'getLoanDocuments' : IDL.Func([IDL.Nat], [IDL.Vec(LoanDocument)], ['query']),
+    'deleteLoanDocument' : IDL.Func([IDL.Nat], [], []),
+  'addLoanDocument' : IDL.Func([IDL.Nat, IDL.Text, IDL.Text, IDL.Vec(IDL.Nat8)], [IDL.Nat], []),
+  'getLoanDocuments' : IDL.Func([IDL.Nat], [IDL.Vec(LoanDocument)], ['query']),
+  'deleteLoanDocument' : IDL.Func([IDL.Nat], [], []),
     'getAttendance' : IDL.Func([IDL.Nat], [IDL.Vec(Attendance)], ['query']),
     'getCallerUserProfile' : IDL.Func([], [IDL.Opt(UserProfile)], ['query']),
     'getCallerUserRole' : IDL.Func([], [UserRole], ['query']),

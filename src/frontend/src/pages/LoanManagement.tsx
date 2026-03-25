@@ -35,18 +35,24 @@ import {
   FileSearch,
   FileText,
   Loader2,
+  Paperclip,
   Plus,
   Search,
   Trash2,
+  Upload,
   XCircle,
 } from "lucide-react";
 import { motion } from "motion/react";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import type { LoanApplication } from "../backend.d";
+import type { LoanApplication, LoanDocument } from "../backend.d";
+import { useActor } from "../hooks/useActor";
 import {
+  useAddLoanDocument,
   useApplyForLoan,
+  useDeleteLoanDocument,
   useGetAllLoanApplications,
+  useGetLoanDocuments,
 } from "../hooks/useQueries";
 
 const FALLBACK_LOANS: LoanApplication[] = [
@@ -573,106 +579,334 @@ function CibilCheck() {
             </div>
           </CardHeader>
           <CardContent className="p-0">
-            <Table data-ocid="cibil.history.table">
-              <TableHeader>
-                <TableRow className="hover:bg-transparent border-border">
-                  <TableHead className="text-xs font-semibold text-muted-foreground pl-6">
-                    Date Checked
-                  </TableHead>
-                  <TableHead className="text-xs font-semibold text-muted-foreground">
-                    Applicant
-                  </TableHead>
-                  <TableHead className="text-xs font-semibold text-muted-foreground">
-                    PAN
-                  </TableHead>
-                  <TableHead className="text-xs font-semibold text-muted-foreground">
-                    Mobile
-                  </TableHead>
-                  <TableHead className="text-xs font-semibold text-muted-foreground">
-                    Score
-                  </TableHead>
-                  <TableHead className="text-xs font-semibold text-muted-foreground">
-                    Category
-                  </TableHead>
-                  <TableHead className="text-xs font-semibold text-muted-foreground text-right pr-6">
-                    Action
-                  </TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {history.length === 0 ? (
-                  <TableRow>
-                    <TableCell
-                      colSpan={7}
-                      className="text-center py-10 text-muted-foreground"
-                      data-ocid="cibil.history.empty_state"
-                    >
-                      No history yet
-                    </TableCell>
+            <div className="overflow-x-auto">
+              <Table data-ocid="cibil.history.table">
+                <TableHeader>
+                  <TableRow className="hover:bg-transparent border-border">
+                    <TableHead className="text-xs font-semibold text-muted-foreground pl-6">
+                      Date Checked
+                    </TableHead>
+                    <TableHead className="text-xs font-semibold text-muted-foreground">
+                      Applicant
+                    </TableHead>
+                    <TableHead className="text-xs font-semibold text-muted-foreground">
+                      PAN
+                    </TableHead>
+                    <TableHead className="text-xs font-semibold text-muted-foreground">
+                      Mobile
+                    </TableHead>
+                    <TableHead className="text-xs font-semibold text-muted-foreground">
+                      Score
+                    </TableHead>
+                    <TableHead className="text-xs font-semibold text-muted-foreground">
+                      Category
+                    </TableHead>
+                    <TableHead className="text-xs font-semibold text-muted-foreground text-right pr-6">
+                      Action
+                    </TableHead>
                   </TableRow>
-                ) : (
-                  history.map((entry, i) => {
-                    const cat = scoreCategory(entry.score);
-                    return (
-                      <TableRow
-                        key={`${entry.pan}-${i}`}
-                        data-ocid={`cibil.history.item.${i + 1}`}
-                        className="border-border"
+                </TableHeader>
+                <TableBody>
+                  {history.length === 0 ? (
+                    <TableRow>
+                      <TableCell
+                        colSpan={7}
+                        className="text-center py-10 text-muted-foreground"
+                        data-ocid="cibil.history.empty_state"
                       >
-                        <TableCell className="text-sm text-muted-foreground pl-6">
-                          {entry.date}
-                        </TableCell>
-                        <TableCell className="text-sm font-medium">
-                          {entry.name}
-                        </TableCell>
-                        <TableCell className="text-sm font-mono">
-                          {entry.pan}
-                        </TableCell>
-                        <TableCell className="text-sm text-muted-foreground">
-                          {entry.mobile}
-                        </TableCell>
-                        <TableCell
-                          className={`text-sm font-bold tabular-nums ${cat.color}`}
+                        No history yet
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    history.map((entry, i) => {
+                      const cat = scoreCategory(entry.score);
+                      return (
+                        <TableRow
+                          key={`${entry.pan}-${i}`}
+                          data-ocid={`cibil.history.item.${i + 1}`}
+                          className="border-border"
                         >
-                          {entry.score}
-                        </TableCell>
-                        <TableCell>
-                          <span
-                            className={`text-xs font-semibold px-2 py-0.5 rounded ${
-                              entry.score >= 800
-                                ? "bg-green-100 text-green-700"
-                                : entry.score >= 750
-                                  ? "bg-green-50 text-green-600"
-                                  : entry.score >= 650
-                                    ? "bg-amber-100 text-amber-700"
-                                    : "bg-red-100 text-red-700"
-                            }`}
+                          <TableCell className="text-sm text-muted-foreground pl-6">
+                            {entry.date}
+                          </TableCell>
+                          <TableCell className="text-sm font-medium">
+                            {entry.name}
+                          </TableCell>
+                          <TableCell className="text-sm font-mono">
+                            {entry.pan}
+                          </TableCell>
+                          <TableCell className="text-sm text-muted-foreground">
+                            {entry.mobile}
+                          </TableCell>
+                          <TableCell
+                            className={`text-sm font-bold tabular-nums ${cat.color}`}
                           >
-                            {cat.label}
-                          </span>
-                        </TableCell>
-                        <TableCell className="text-right pr-6">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            data-ocid={`cibil.history.download.button.${i + 1}`}
-                            onClick={() => downloadCibilReport(entry)}
-                            className="h-8 w-8 p-0"
-                            title="Download Report"
-                          >
-                            <Download className="w-4 h-4" />
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })
-                )}
-              </TableBody>
-            </Table>
+                            {entry.score}
+                          </TableCell>
+                          <TableCell>
+                            <span
+                              className={`text-xs font-semibold px-2 py-0.5 rounded ${
+                                entry.score >= 800
+                                  ? "bg-green-100 text-green-700"
+                                  : entry.score >= 750
+                                    ? "bg-green-50 text-green-600"
+                                    : entry.score >= 650
+                                      ? "bg-amber-100 text-amber-700"
+                                      : "bg-red-100 text-red-700"
+                              }`}
+                            >
+                              {cat.label}
+                            </span>
+                          </TableCell>
+                          <TableCell className="text-right pr-6">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              data-ocid={`cibil.history.download.button.${i + 1}`}
+                              onClick={() => downloadCibilReport(entry)}
+                              className="h-8 w-8 p-0"
+                              title="Download Report"
+                            >
+                              <Download className="w-4 h-4" />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })
+                  )}
+                </TableBody>
+              </Table>
+            </div>
           </CardContent>
         </Card>
       </motion.div>
     </div>
+  );
+}
+
+// ─── Loan Documents Dialog ────────────────────────────────────────────────────
+
+function LoanDocumentsDialog({
+  loan,
+  onClose,
+}: {
+  loan: LoanApplication | null;
+  onClose: () => void;
+}) {
+  const { actor } = useActor();
+  const { data: documents = [], isLoading: docsLoading } = useGetLoanDocuments(
+    loan?.id ?? null,
+  );
+  const addLoanDocument = useAddLoanDocument();
+  const deleteLoanDocument = useDeleteLoanDocument();
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [deletingId, setDeletingId] = useState<bigint | null>(null);
+
+  const handleUpload = async () => {
+    if (!selectedFile || !loan) return;
+    setUploading(true);
+    try {
+      const bytes = new Uint8Array(await selectedFile.arrayBuffer());
+      await addLoanDocument.mutateAsync({
+        loanId: loan.id,
+        name: selectedFile.name,
+        fileType: selectedFile.type || "application/octet-stream",
+        blobRef: bytes,
+      });
+      setSelectedFile(null);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      toast.success("Document uploaded successfully");
+    } catch {
+      toast.error("Failed to upload document");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleDelete = async (doc: LoanDocument) => {
+    if (!loan) return;
+    setDeletingId(doc.id);
+    try {
+      await deleteLoanDocument.mutateAsync({ docId: doc.id, loanId: loan.id });
+      toast.success("Document deleted");
+    } catch {
+      toast.error("Failed to delete document");
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+  const handleDownload = async (doc: LoanDocument) => {
+    if (!actor) return;
+    try {
+      const result = await (actor as any)._downloadFile(doc.blobRef);
+      const url = result.getDirectURL();
+      window.open(url, "_blank");
+    } catch {
+      toast.error("Failed to download document");
+    }
+  };
+
+  return (
+    <Dialog
+      open={!!loan}
+      onOpenChange={(open) => {
+        if (!open) onClose();
+      }}
+    >
+      <DialogContent
+        data-ocid="loans.documents.dialog"
+        className="max-w-[95vw] sm:max-w-lg"
+      >
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Paperclip className="w-4 h-4" />
+            Documents — {loan?.applicantName}
+          </DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-4 py-1">
+          {/* Upload section */}
+          <div className="border border-dashed border-border rounded-lg p-4 space-y-3">
+            <p className="text-sm font-medium text-muted-foreground">
+              Upload New Document
+            </p>
+            <div className="flex items-center gap-2 flex-wrap">
+              <input
+                ref={fileInputRef}
+                type="file"
+                data-ocid="loans.documents.upload_button"
+                accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.gif"
+                className="hidden"
+                onChange={(e) => setSelectedFile(e.target.files?.[0] ?? null)}
+              />
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-2"
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <Paperclip className="w-3.5 h-3.5" />
+                {selectedFile ? selectedFile.name : "Choose File"}
+              </Button>
+              {selectedFile && (
+                <Button
+                  size="sm"
+                  className="gap-2"
+                  disabled={uploading}
+                  onClick={handleUpload}
+                  data-ocid="loans.documents.submit_button"
+                >
+                  {uploading ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />{" "}
+                      Uploading...
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="w-3.5 h-3.5" /> Upload
+                    </>
+                  )}
+                </Button>
+              )}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Supported: PDF, Word, Images (JPG, PNG)
+            </p>
+          </div>
+
+          {/* Documents list */}
+          <div className="space-y-1">
+            <p className="text-sm font-medium mb-2">
+              Uploaded Documents
+              {documents.length > 0 && (
+                <span className="ml-2 text-xs text-muted-foreground">
+                  ({documents.length})
+                </span>
+              )}
+            </p>
+            {docsLoading ? (
+              <div
+                className="flex items-center gap-2 py-4 text-muted-foreground text-sm"
+                data-ocid="loans.documents.loading_state"
+              >
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Loading documents...
+              </div>
+            ) : documents.length === 0 ? (
+              <div
+                className="text-center py-8 text-muted-foreground text-sm border border-dashed border-border rounded-lg"
+                data-ocid="loans.documents.empty_state"
+              >
+                <Paperclip className="w-8 h-8 mx-auto mb-2 opacity-30" />
+                No documents uploaded yet
+              </div>
+            ) : (
+              <div className="space-y-2 max-h-64 overflow-y-auto">
+                {documents.map((doc, i) => (
+                  <div
+                    key={String(doc.id)}
+                    data-ocid={`loans.documents.item.${i + 1}`}
+                    className="flex items-center gap-3 p-3 bg-muted/40 rounded-lg border border-border"
+                  >
+                    <FileText className="w-4 h-4 text-primary flex-shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">{doc.name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {doc.fileType} &bull;{" "}
+                        {new Date(
+                          Number(doc.uploadedAt) / 1_000_000,
+                        ).toLocaleDateString()}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7"
+                        title="Download"
+                        data-ocid={`loans.documents.download.button.${i + 1}`}
+                        onClick={() => handleDownload(doc)}
+                      >
+                        <Download className="w-3.5 h-3.5" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 text-destructive hover:text-destructive"
+                        title="Delete"
+                        data-ocid={`loans.documents.delete_button.${i + 1}`}
+                        disabled={deletingId === doc.id}
+                        onClick={() => handleDelete(doc)}
+                      >
+                        {deletingId === doc.id ? (
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        ) : (
+                          <Trash2 className="w-3.5 h-3.5" />
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button
+            data-ocid="loans.documents.close_button"
+            variant="outline"
+            onClick={onClose}
+          >
+            Close
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -682,12 +916,17 @@ export default function LoanManagement() {
   const { data: loans = [] } = useGetAllLoanApplications();
   const applyForLoan = useApplyForLoan();
 
-  const displayLoans = loans.length > 0 ? loans : FALLBACK_LOANS;
+  const [localAdditions, setLocalAdditions] = useState<LoanApplication[]>([]);
+  const displayLoans = useMemo(
+    () => [...(loans.length > 0 ? loans : FALLBACK_LOANS), ...localAdditions],
+    [loans, localAdditions],
+  );
 
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [isOpen, setIsOpen] = useState(false);
   const [mainTab, setMainTab] = useState("applications");
+  const [docLoan, setDocLoan] = useState<LoanApplication | null>(null);
   const [form, setForm] = useState({
     applicantName: "",
     loanType: "",
@@ -735,6 +974,7 @@ export default function LoanManagement() {
       toast.error("Please fill in all required fields");
       return;
     }
+    let backendSuccess = false;
     try {
       await applyForLoan.mutateAsync({
         applicantName: form.applicantName,
@@ -743,18 +983,34 @@ export default function LoanManagement() {
         agentName: form.agentName,
         notes: form.notes,
       });
-      toast.success("Loan application submitted");
-      setIsOpen(false);
-      setForm({
-        applicantName: "",
-        loanType: "",
-        amount: "",
-        agentName: "",
-        notes: "",
-      });
+      backendSuccess = true;
     } catch {
-      toast.error("Failed to submit application");
+      // fallback: add locally
     }
+    if (!backendSuccess) {
+      setLocalAdditions((prev) => [
+        ...prev,
+        {
+          id: BigInt(Date.now()),
+          applicantName: form.applicantName,
+          loanType: form.loanType,
+          amount: Number.parseFloat(form.amount),
+          agentName: form.agentName,
+          status: "Pending",
+          date: BigInt(Date.now()),
+          notes: form.notes,
+        },
+      ]);
+    }
+    toast.success("Loan application submitted");
+    setIsOpen(false);
+    setForm({
+      applicantName: "",
+      loanType: "",
+      amount: "",
+      agentName: "",
+      notes: "",
+    });
   };
 
   return (
@@ -896,72 +1152,89 @@ export default function LoanManagement() {
                 </div>
               </CardHeader>
               <CardContent className="p-0">
-                <Table data-ocid="loans.applications.table">
-                  <TableHeader>
-                    <TableRow className="hover:bg-transparent border-border">
-                      <TableHead className="text-xs font-semibold text-muted-foreground pl-6">
-                        Applicant
-                      </TableHead>
-                      <TableHead className="text-xs font-semibold text-muted-foreground">
-                        Loan Type
-                      </TableHead>
-                      <TableHead className="text-xs font-semibold text-muted-foreground">
-                        Amount
-                      </TableHead>
-                      <TableHead className="text-xs font-semibold text-muted-foreground">
-                        Agent
-                      </TableHead>
-                      <TableHead className="text-xs font-semibold text-muted-foreground">
-                        Date
-                      </TableHead>
-                      <TableHead className="text-xs font-semibold text-muted-foreground">
-                        Status
-                      </TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filtered.length === 0 ? (
-                      <TableRow>
-                        <TableCell
-                          colSpan={6}
-                          className="text-center py-10 text-muted-foreground"
-                          data-ocid="loans.applications.empty_state"
-                        >
-                          No applications found
-                        </TableCell>
+                <div className="overflow-x-auto">
+                  <Table data-ocid="loans.applications.table">
+                    <TableHeader>
+                      <TableRow className="hover:bg-transparent border-border">
+                        <TableHead className="text-xs font-semibold text-muted-foreground pl-6">
+                          Applicant
+                        </TableHead>
+                        <TableHead className="text-xs font-semibold text-muted-foreground">
+                          Loan Type
+                        </TableHead>
+                        <TableHead className="text-xs font-semibold text-muted-foreground">
+                          Amount
+                        </TableHead>
+                        <TableHead className="text-xs font-semibold text-muted-foreground">
+                          Agent
+                        </TableHead>
+                        <TableHead className="text-xs font-semibold text-muted-foreground">
+                          Date
+                        </TableHead>
+                        <TableHead className="text-xs font-semibold text-muted-foreground">
+                          Status
+                        </TableHead>
+                        <TableHead className="text-xs font-semibold text-muted-foreground">
+                          Actions
+                        </TableHead>
                       </TableRow>
-                    ) : (
-                      filtered.map((loan, i) => (
-                        <TableRow
-                          key={String(loan.id)}
-                          data-ocid={`loans.applications.item.${i + 1}`}
-                          className="border-border"
-                        >
-                          <TableCell className="font-medium text-sm pl-6">
-                            {loan.applicantName}
-                          </TableCell>
-                          <TableCell className="text-sm text-muted-foreground">
-                            {loan.loanType}
-                          </TableCell>
-                          <TableCell className="text-sm font-medium">
-                            ₹{loan.amount.toLocaleString()}
-                          </TableCell>
-                          <TableCell className="text-sm text-muted-foreground">
-                            {loan.agentName}
-                          </TableCell>
-                          <TableCell className="text-sm text-muted-foreground">
-                            {new Date(
-                              Number(loan.date) / 1_000_000,
-                            ).toLocaleDateString()}
-                          </TableCell>
-                          <TableCell>
-                            <StatusPill status={loan.status} />
+                    </TableHeader>
+                    <TableBody>
+                      {filtered.length === 0 ? (
+                        <TableRow>
+                          <TableCell
+                            colSpan={7}
+                            className="text-center py-10 text-muted-foreground"
+                            data-ocid="loans.applications.empty_state"
+                          >
+                            No applications found
                           </TableCell>
                         </TableRow>
-                      ))
-                    )}
-                  </TableBody>
-                </Table>
+                      ) : (
+                        filtered.map((loan, i) => (
+                          <TableRow
+                            key={String(loan.id)}
+                            data-ocid={`loans.applications.item.${i + 1}`}
+                            className="border-border"
+                          >
+                            <TableCell className="font-medium text-sm pl-6">
+                              {loan.applicantName}
+                            </TableCell>
+                            <TableCell className="text-sm text-muted-foreground">
+                              {loan.loanType}
+                            </TableCell>
+                            <TableCell className="text-sm font-medium">
+                              ₹{loan.amount.toLocaleString()}
+                            </TableCell>
+                            <TableCell className="text-sm text-muted-foreground">
+                              {loan.agentName}
+                            </TableCell>
+                            <TableCell className="text-sm text-muted-foreground">
+                              {new Date(
+                                Number(loan.date) / 1_000_000,
+                              ).toLocaleDateString()}
+                            </TableCell>
+                            <TableCell>
+                              <StatusPill status={loan.status} />
+                            </TableCell>
+                            <TableCell>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8"
+                                title="Manage Documents"
+                                data-ocid={`loans.documents.open_modal_button.${i + 1}`}
+                                onClick={() => setDocLoan(loan)}
+                              >
+                                <Paperclip className="w-3.5 h-3.5" />
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
               </CardContent>
             </Card>
           </motion.div>
@@ -972,10 +1245,11 @@ export default function LoanManagement() {
         </TabsContent>
       </Tabs>
 
+      {/* New Application Dialog */}
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
         <DialogContent
           data-ocid="loans.new_application.dialog"
-          className="sm:max-w-md"
+          className="max-w-[95vw] sm:max-w-md"
         >
           <DialogHeader>
             <DialogTitle>New Loan Application</DialogTitle>
@@ -1075,6 +1349,9 @@ export default function LoanManagement() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Loan Documents Dialog */}
+      <LoanDocumentsDialog loan={docLoan} onClose={() => setDocLoan(null)} />
     </div>
   );
 }

@@ -24,7 +24,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Loader2, MapPin, Plus } from "lucide-react";
+import { Crosshair, Loader2, MapPin, Plus } from "lucide-react";
 import { motion } from "motion/react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -145,12 +145,38 @@ export default function EmployeeLocations() {
   const [locations, setLocations] =
     useState<LocationRecord[]>(FALLBACK_LOCATIONS);
   const [isOpen, setIsOpen] = useState(false);
+  const [gettingLocation, setGettingLocation] = useState(false);
   const [form, setForm] = useState({
     employeeId: "",
     latitude: "",
     longitude: "",
     note: "",
   });
+
+  const handleUseMyLocation = () => {
+    if (!navigator.geolocation) {
+      toast.error("Geolocation is not supported by your browser");
+      return;
+    }
+    setGettingLocation(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setForm((prev) => ({
+          ...prev,
+          latitude: pos.coords.latitude.toFixed(6),
+          longitude: pos.coords.longitude.toFixed(6),
+        }));
+        setGettingLocation(false);
+        toast.success("Location captured");
+      },
+      () => {
+        setGettingLocation(false);
+        toast.error(
+          "Unable to get your location. Please allow location access.",
+        );
+      },
+    );
+  };
 
   const handleSubmit = async () => {
     if (!form.employeeId || !form.latitude || !form.longitude) {
@@ -227,60 +253,65 @@ export default function EmployeeLocations() {
             </CardTitle>
           </CardHeader>
           <CardContent className="p-0">
-            <Table data-ocid="locations.table">
-              <TableHeader>
-                <TableRow className="hover:bg-transparent border-border">
-                  <TableHead className="text-xs font-semibold text-muted-foreground pl-6">
-                    Employee
-                  </TableHead>
-                  <TableHead className="text-xs font-semibold text-muted-foreground">
-                    Latitude
-                  </TableHead>
-                  <TableHead className="text-xs font-semibold text-muted-foreground">
-                    Longitude
-                  </TableHead>
-                  <TableHead className="text-xs font-semibold text-muted-foreground">
-                    Note
-                  </TableHead>
-                  <TableHead className="text-xs font-semibold text-muted-foreground">
-                    Timestamp
-                  </TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {locations.map((loc, i) => (
-                  <TableRow
-                    key={`${String(loc.employeeId)}-${loc.timestamp.getTime()}`}
-                    data-ocid={`locations.item.${i + 1}`}
-                    className="border-border"
-                  >
-                    <TableCell className="pl-6">
-                      <p className="text-sm font-medium text-foreground">
-                        {loc.employeeName}
-                      </p>
-                    </TableCell>
-                    <TableCell className="text-sm font-mono text-muted-foreground">
-                      {loc.latitude.toFixed(4)}
-                    </TableCell>
-                    <TableCell className="text-sm font-mono text-muted-foreground">
-                      {loc.longitude.toFixed(4)}
-                    </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
-                      {loc.note || "—"}
-                    </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
-                      {loc.timestamp.toLocaleTimeString()}
-                    </TableCell>
+            <div className="overflow-x-auto">
+              <Table data-ocid="locations.table">
+                <TableHeader>
+                  <TableRow className="hover:bg-transparent border-border">
+                    <TableHead className="text-xs font-semibold text-muted-foreground pl-6">
+                      Employee
+                    </TableHead>
+                    <TableHead className="text-xs font-semibold text-muted-foreground">
+                      Latitude
+                    </TableHead>
+                    <TableHead className="text-xs font-semibold text-muted-foreground">
+                      Longitude
+                    </TableHead>
+                    <TableHead className="text-xs font-semibold text-muted-foreground">
+                      Note
+                    </TableHead>
+                    <TableHead className="text-xs font-semibold text-muted-foreground">
+                      Timestamp
+                    </TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {locations.map((loc, i) => (
+                    <TableRow
+                      key={`${String(loc.employeeId)}-${loc.timestamp.getTime()}`}
+                      data-ocid={`locations.item.${i + 1}`}
+                      className="border-border"
+                    >
+                      <TableCell className="pl-6">
+                        <p className="text-sm font-medium text-foreground">
+                          {loc.employeeName}
+                        </p>
+                      </TableCell>
+                      <TableCell className="text-sm font-mono text-muted-foreground">
+                        {loc.latitude.toFixed(4)}
+                      </TableCell>
+                      <TableCell className="text-sm font-mono text-muted-foreground">
+                        {loc.longitude.toFixed(4)}
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {loc.note || "—"}
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {loc.timestamp.toLocaleString()}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
           </CardContent>
         </Card>
       </motion.div>
 
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
-        <DialogContent data-ocid="locations.add.dialog" className="sm:max-w-md">
+        <DialogContent
+          data-ocid="locations.add.dialog"
+          className="max-w-[95vw] sm:max-w-md"
+        >
           <DialogHeader>
             <DialogTitle>Record Location Check-in</DialogTitle>
           </DialogHeader>
@@ -303,34 +334,64 @@ export default function EmployeeLocations() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <Label htmlFor="loc-lat">Latitude</Label>
-                <Input
-                  id="loc-lat"
-                  data-ocid="locations.latitude.input"
-                  type="number"
-                  step="0.0001"
-                  placeholder="19.0760"
-                  value={form.latitude}
-                  onChange={(e) =>
-                    setForm({ ...form, latitude: e.target.value })
-                  }
-                />
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <Label>Coordinates</Label>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-7 text-xs gap-1"
+                  onClick={handleUseMyLocation}
+                  disabled={gettingLocation}
+                >
+                  {gettingLocation ? (
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                  ) : (
+                    <Crosshair className="w-3 h-3" />
+                  )}
+                  Use My Location
+                </Button>
               </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="loc-lng">Longitude</Label>
-                <Input
-                  id="loc-lng"
-                  data-ocid="locations.longitude.input"
-                  type="number"
-                  step="0.0001"
-                  placeholder="72.8777"
-                  value={form.longitude}
-                  onChange={(e) =>
-                    setForm({ ...form, longitude: e.target.value })
-                  }
-                />
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label
+                    htmlFor="loc-lat"
+                    className="text-xs text-muted-foreground"
+                  >
+                    Latitude
+                  </Label>
+                  <Input
+                    id="loc-lat"
+                    data-ocid="locations.latitude.input"
+                    type="number"
+                    step="0.0001"
+                    placeholder="19.0760"
+                    value={form.latitude}
+                    onChange={(e) =>
+                      setForm({ ...form, latitude: e.target.value })
+                    }
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label
+                    htmlFor="loc-lng"
+                    className="text-xs text-muted-foreground"
+                  >
+                    Longitude
+                  </Label>
+                  <Input
+                    id="loc-lng"
+                    data-ocid="locations.longitude.input"
+                    type="number"
+                    step="0.0001"
+                    placeholder="72.8777"
+                    value={form.longitude}
+                    onChange={(e) =>
+                      setForm({ ...form, longitude: e.target.value })
+                    }
+                  />
+                </div>
               </div>
             </div>
             <div className="space-y-1.5">

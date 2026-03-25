@@ -202,18 +202,26 @@ export default function EmployeeAttendance() {
   const [records, setRecords] =
     useState<AttendanceRecord[]>(FALLBACK_ATTENDANCE);
   const [isOpen, setIsOpen] = useState(false);
+  const [dateFilter, setDateFilter] = useState(today);
   const [form, setForm] = useState({
     employeeId: "",
     date: today,
     status: AttendanceStatus.present as AttendanceStatus,
   });
 
+  const filteredRecords = dateFilter
+    ? records.filter((r) => r.date === dateFilter)
+    : records;
+
   const stats = {
-    present: records.filter((r) => r.status === AttendanceStatus.present)
+    present: filteredRecords.filter(
+      (r) => r.status === AttendanceStatus.present,
+    ).length,
+    absent: filteredRecords.filter((r) => r.status === AttendanceStatus.absent)
       .length,
-    absent: records.filter((r) => r.status === AttendanceStatus.absent).length,
-    halfDay: records.filter((r) => r.status === AttendanceStatus.halfDay)
-      .length,
+    halfDay: filteredRecords.filter(
+      (r) => r.status === AttendanceStatus.halfDay,
+    ).length,
   };
 
   const handleSubmit = async () => {
@@ -223,41 +231,27 @@ export default function EmployeeAttendance() {
     }
     const emp = displayEmployees.find((e) => String(e.id) === form.employeeId);
     if (!emp) return;
+    const newRecord: AttendanceRecord = {
+      employeeId: emp.id,
+      employeeName: emp.name,
+      date: form.date,
+      status: form.status,
+    };
     try {
       await recordAttendance.mutateAsync({
         employeeId: emp.id,
         date: form.date,
         status: form.status,
       });
-      setRecords((prev) => [
-        ...prev.filter(
-          (r) => !(r.employeeId === emp.id && r.date === form.date),
-        ),
-        {
-          employeeId: emp.id,
-          employeeName: emp.name,
-          date: form.date,
-          status: form.status,
-        },
-      ]);
-      toast.success("Attendance recorded");
-      setIsOpen(false);
     } catch {
       // fallback: just update local
-      setRecords((prev) => [
-        ...prev.filter(
-          (r) => !(r.employeeId === emp.id && r.date === form.date),
-        ),
-        {
-          employeeId: emp.id,
-          employeeName: emp.name,
-          date: form.date,
-          status: form.status,
-        },
-      ]);
-      toast.success("Attendance recorded");
-      setIsOpen(false);
     }
+    setRecords((prev) => [
+      ...prev.filter((r) => !(r.employeeId === emp.id && r.date === form.date)),
+      newRecord,
+    ]);
+    toast.success("Attendance recorded");
+    setIsOpen(false);
   };
 
   return (
@@ -301,7 +295,7 @@ export default function EmployeeAttendance() {
                 <p className="text-2xl font-bold text-foreground">
                   {stats.present}
                 </p>
-                <p className="text-xs text-muted-foreground">Present Today</p>
+                <p className="text-xs text-muted-foreground">Present</p>
               </div>
             </div>
           </CardContent>
@@ -314,7 +308,7 @@ export default function EmployeeAttendance() {
                 <p className="text-2xl font-bold text-foreground">
                   {stats.absent}
                 </p>
-                <p className="text-xs text-muted-foreground">Absent Today</p>
+                <p className="text-xs text-muted-foreground">Absent</p>
               </div>
             </div>
           </CardContent>
@@ -327,7 +321,7 @@ export default function EmployeeAttendance() {
                 <p className="text-2xl font-bold text-foreground">
                   {stats.halfDay}
                 </p>
-                <p className="text-xs text-muted-foreground">Half Day Today</p>
+                <p className="text-xs text-muted-foreground">Half Day</p>
               </div>
             </div>
           </CardContent>
@@ -341,61 +335,102 @@ export default function EmployeeAttendance() {
       >
         <Card className="shadow-card border-border">
           <CardHeader className="pb-3">
-            <CardTitle className="text-base">
-              Today's Attendance — {today}
-            </CardTitle>
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+              <CardTitle className="text-base flex-1">
+                Attendance Records
+              </CardTitle>
+              <div className="flex items-center gap-2">
+                <label
+                  htmlFor="date-filter"
+                  className="text-xs text-muted-foreground font-medium"
+                >
+                  Filter by Date:
+                </label>
+                <input
+                  type="date"
+                  id="date-filter"
+                  value={dateFilter}
+                  onChange={(e) => setDateFilter(e.target.value)}
+                  className="flex h-8 rounded-md border border-input bg-background px-2 py-1 text-sm shadow-sm"
+                />
+                {dateFilter && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 text-xs"
+                    onClick={() => setDateFilter("")}
+                  >
+                    Clear
+                  </Button>
+                )}
+              </div>
+            </div>
           </CardHeader>
           <CardContent className="p-0">
-            <Table data-ocid="attendance.table">
-              <TableHeader>
-                <TableRow className="hover:bg-transparent border-border">
-                  <TableHead className="text-xs font-semibold text-muted-foreground pl-6">
-                    Employee
-                  </TableHead>
-                  <TableHead className="text-xs font-semibold text-muted-foreground">
-                    Department
-                  </TableHead>
-                  <TableHead className="text-xs font-semibold text-muted-foreground">
-                    Date
-                  </TableHead>
-                  <TableHead className="text-xs font-semibold text-muted-foreground">
-                    Status
-                  </TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {records.map((rec, i) => {
-                  const emp = displayEmployees.find(
-                    (e) => e.id === rec.employeeId,
-                  );
-                  return (
-                    <TableRow
-                      key={`${String(rec.employeeId)}-${rec.date}`}
-                      data-ocid={`attendance.item.${i + 1}`}
-                      className="border-border"
-                    >
-                      <TableCell className="pl-6">
-                        <p className="text-sm font-medium text-foreground">
-                          {rec.employeeName}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {emp?.email}
-                        </p>
-                      </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
-                        {emp?.department ?? "—"}
-                      </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
-                        {rec.date}
-                      </TableCell>
-                      <TableCell>
-                        <StatusBadge status={rec.status} />
+            <div className="overflow-x-auto">
+              <Table data-ocid="attendance.table">
+                <TableHeader>
+                  <TableRow className="hover:bg-transparent border-border">
+                    <TableHead className="text-xs font-semibold text-muted-foreground pl-6">
+                      Employee
+                    </TableHead>
+                    <TableHead className="text-xs font-semibold text-muted-foreground">
+                      Department
+                    </TableHead>
+                    <TableHead className="text-xs font-semibold text-muted-foreground">
+                      Date
+                    </TableHead>
+                    <TableHead className="text-xs font-semibold text-muted-foreground">
+                      Status
+                    </TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredRecords.length === 0 ? (
+                    <TableRow>
+                      <TableCell
+                        colSpan={4}
+                        className="text-center py-10 text-muted-foreground"
+                        data-ocid="attendance.empty_state"
+                      >
+                        No attendance records for selected date
                       </TableCell>
                     </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
+                  ) : (
+                    filteredRecords.map((rec, i) => {
+                      const emp = displayEmployees.find(
+                        (e) => e.id === rec.employeeId,
+                      );
+                      return (
+                        <TableRow
+                          key={`${String(rec.employeeId)}-${rec.date}`}
+                          data-ocid={`attendance.item.${i + 1}`}
+                          className="border-border"
+                        >
+                          <TableCell className="pl-6">
+                            <p className="text-sm font-medium text-foreground">
+                              {rec.employeeName}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {emp?.email}
+                            </p>
+                          </TableCell>
+                          <TableCell className="text-sm text-muted-foreground">
+                            {emp?.department ?? "—"}
+                          </TableCell>
+                          <TableCell className="text-sm text-muted-foreground">
+                            {rec.date}
+                          </TableCell>
+                          <TableCell>
+                            <StatusBadge status={rec.status} />
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })
+                  )}
+                </TableBody>
+              </Table>
+            </div>
           </CardContent>
         </Card>
       </motion.div>
@@ -403,7 +438,7 @@ export default function EmployeeAttendance() {
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
         <DialogContent
           data-ocid="attendance.add.dialog"
-          className="sm:max-w-md"
+          className="max-w-[95vw] sm:max-w-md"
         >
           <DialogHeader>
             <DialogTitle>Mark Attendance</DialogTitle>
