@@ -48,19 +48,19 @@ const InternetIdentityReactContext = createContext<ProviderValue | undefined>(
 );
 
 async function createAuthClient(
-  createOptions?: AuthClientCreateOptions,
+  opts?: AuthClientCreateOptions,
 ): Promise<AuthClient> {
   const config = await loadConfig();
   const options: AuthClientCreateOptions = {
     idleOptions: {
       disableDefaultIdleCallback: true,
       disableIdle: true,
-      ...createOptions?.idleOptions,
+      ...opts?.idleOptions,
     },
     loginOptions: {
       derivationOrigin: config.ii_derivation_origin,
     },
-    ...createOptions,
+    ...opts,
   };
   return AuthClient.create(options);
 }
@@ -88,9 +88,13 @@ export function InternetIdentityProvider({
   children: ReactNode;
   createOptions?: AuthClientCreateOptions;
 }>) {
-  // Store both in refs so the init effect never re-runs due to state changes
+  // authClient lives in a ref -- never in state -- so updates never re-trigger effects
   const authClientRef = useRef<AuthClient | null>(null);
+  // Capture createOptions in a ref so we can use it inside the effect without listing it as a dep
   const createOptionsRef = useRef(createOptions);
+  // Guard to ensure init only runs once
+  const initializedRef = useRef(false);
+
   const [identity, setIdentity] = useState<Identity | undefined>(undefined);
   const [loginStatus, setStatus] = useState<Status>("initializing");
   const [loginError, setError] = useState<Error | undefined>(undefined);
@@ -98,36 +102,6 @@ export function InternetIdentityProvider({
   const setErrorMessage = useCallback((message: string) => {
     setStatus("loginError");
     setError(new Error(message));
-  }, []);
-
-  // biome-ignore lint/correctness/useExhaustiveDependencies: intentionally runs once on mount
-  useEffect(() => {
-    let cancelled = false;
-    void (async () => {
-      try {
-        const client = await createAuthClient(createOptionsRef.current);
-        if (cancelled) return;
-        authClientRef.current = client;
-        const isAuthenticated = await client.isAuthenticated();
-        if (cancelled) return;
-        if (isAuthenticated) {
-          setIdentity(client.getIdentity());
-        }
-        if (!cancelled) setStatus("idle");
-      } catch (unknownError) {
-        if (!cancelled) {
-          setStatus("loginError");
-          setError(
-            unknownError instanceof Error
-              ? unknownError
-              : new Error("Initialization failed"),
-          );
-        }
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
   }, []);
 
   const handleLoginSuccess = useCallback(() => {
@@ -151,11 +125,10 @@ export function InternetIdentityProvider({
     const client = authClientRef.current;
     if (!client) {
       setErrorMessage(
-        "AuthClient is not initialized yet, make sure to call `login` on user interaction e.g. click.",
+        "AuthClient is not initialized yet, make sure to call login on user interaction e.g. click.",
       );
       return;
     }
-
     const currentIdentity = client.getIdentity();
     if (
       !currentIdentity.getPrincipal().isAnonymous() &&
@@ -165,14 +138,12 @@ export function InternetIdentityProvider({
       setErrorMessage("User is already authenticated");
       return;
     }
-
     const options: AuthClientLoginOptions = {
       identityProvider: DEFAULT_IDENTITY_PROVIDER,
       onSuccess: handleLoginSuccess,
       onError: handleLoginError,
       maxTimeToLive: ONE_HOUR_IN_NANOSECONDS * BigInt(24 * 30),
     };
-
     setStatus("logging-in");
     void client.login(options);
   }, [handleLoginError, handleLoginSuccess, setErrorMessage]);
@@ -183,10 +154,11 @@ export function InternetIdentityProvider({
       setErrorMessage("Auth client not initialized");
       return;
     }
-
     void client
       .logout()
       .then(() => {
+        authClientRef.current = null;
+        initializedRef.current = false;
         setIdentity(undefined);
         setStatus("idle");
         setError(undefined);
@@ -200,6 +172,30 @@ export function InternetIdentityProvider({
         );
       });
   }, [setErrorMessage]);
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: createOptionsRef is stable, intentional empty deps
+  useEffect(() => {
+    if (initializedRef.current) return;
+    initializedRef.current = true;
+    void (async () => {
+      try {
+        const client = await createAuthClient(createOptionsRef.current);
+        authClientRef.current = client;
+        const isAuthenticated = await client.isAuthenticated();
+        if (isAuthenticated) {
+          setIdentity(client.getIdentity());
+        }
+        setStatus("idle");
+      } catch (unknownError) {
+        setStatus("loginError");
+        setError(
+          unknownError instanceof Error
+            ? unknownError
+            : new Error("Initialization failed"),
+        );
+      }
+    })();
+  }, []);
 
   const value = useMemo<ProviderValue>(
     () => ({
