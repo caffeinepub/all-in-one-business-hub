@@ -17,7 +17,6 @@ import {
   useRef,
   useState,
 } from "react";
-import { loadConfig } from "../config";
 
 export type Status =
   | "initializing"
@@ -50,15 +49,11 @@ const InternetIdentityReactContext = createContext<ProviderValue | undefined>(
 async function createAuthClient(
   createOptions?: AuthClientCreateOptions,
 ): Promise<AuthClient> {
-  const config = await loadConfig();
   const options: AuthClientCreateOptions = {
     idleOptions: {
       disableDefaultIdleCallback: true,
       disableIdle: true,
       ...createOptions?.idleOptions,
-    },
-    loginOptions: {
-      derivationOrigin: config.ii_derivation_origin,
     },
     ...createOptions,
   };
@@ -88,7 +83,6 @@ export function InternetIdentityProvider({
   children: ReactNode;
   createOptions?: AuthClientCreateOptions;
 }>) {
-  // Store authClient in a ref to avoid triggering effect re-runs
   const authClientRef = useRef<AuthClient | undefined>(undefined);
   const [identity, setIdentity] = useState<Identity | undefined>(undefined);
   const [loginStatus, setStatus] = useState<Status>("initializing");
@@ -99,12 +93,9 @@ export function InternetIdentityProvider({
     setError(new Error(message));
   }, []);
 
-  // Capture createOptions in a ref so the init effect can safely use it
-  // without listing it as a dependency (which would cause re-runs)
   const createOptionsRef = useRef(createOptions);
 
-  // Initialize once on mount — empty deps array is intentional
-  // biome-ignore lint/correctness/useExhaustiveDependencies: must run once only
+  // biome-ignore lint/correctness/useExhaustiveDependencies: intentionally runs once on mount
   useEffect(() => {
     let cancelled = false;
     void (async () => {
@@ -134,7 +125,7 @@ export function InternetIdentityProvider({
     return () => {
       cancelled = true;
     };
-  }, []); // intentionally empty — runs once on mount only
+  }, []);
 
   const login = useCallback(() => {
     const authClient = authClientRef.current;
@@ -189,7 +180,6 @@ export function InternetIdentityProvider({
         setIdentity(undefined);
         setStatus("idle");
         setError(undefined);
-        // Re-create the client so the user can log in again
         void createAuthClient().then((newClient) => {
           authClientRef.current = newClient;
         });
